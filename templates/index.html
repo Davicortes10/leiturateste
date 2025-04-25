@@ -197,10 +197,27 @@
 
     function handleGabaritoResponse(data) {
       document.getElementById('camera-container').style.display = 'none';
+      resultContainer.style.display = 'none';
       gabaritoContainer.style.display = 'block';
-      gabaritoResultElement.innerHTML = Object.entries(data).map(([q, r]) => `<div class="question-item"><span class="question-number">${q}:</span><span class="question-answer">${r}</span></div>`).join('');
-    }
 
+      // Se o dado for objeto (esperado), exibe normalmente
+      if (typeof data === 'object' && data !== null) {
+        let gabaritoHTML = '';
+
+        for (const [questao, resposta] of Object.entries(data)) {
+          gabaritoHTML += `
+            <div class="question-item">
+              <span class="question-number">${questao}:</span>
+              <span class="question-answer">${resposta}</span>
+            </div>
+          `;
+        }
+        gabaritoResultElement.innerHTML = gabaritoHTML;
+      } else {
+        // Se for texto simples ou erro, exibe como texto bruto
+        gabaritoResultElement.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+      }
+    }
     function switchToGabaritoMode() {
       currentMode = 'gabarito';
       document.getElementById('camera-container').style.display = 'block';
