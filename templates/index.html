@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leitor de QR Code e Gabarito</title>
+
+  <style>
+    /* CSS embutido */
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #f5f5f5; color: #333; line-height: 1.6; }
+    .container { max-width: 100%; margin: 0 auto; padding: 20px; text-align: center; }
+    h1 { margin-bottom: 20px; color: #2c3e50; }
+    h2 { margin-bottom: 15px; color: #3498db; }
+    #camera-container { margin: 20px auto; position: relative; max-width: 500px; }
+    #camera { width: 100%; height: auto; border-radius: 10px; border: 3px solid #3498db; background-color: #000; }
+    .camera-controls { margin-top: 15px; display: flex; justify-content: center; gap: 10px; }
+    button { padding: 10px 20px; border: none; border-radius: 5px; background-color: #3498db; color: white; font-weight: bold; cursor: pointer; transition: background-color 0.3s; }
+    button:hover { background-color: #2980b9; }
+    .action-button { padding: 12px 24px; background-color: #e74c3c; margin-top: 15px; font-size: 16px; }
+    .action-button:hover { background-color: #c0392b; }
+    #result-container, #gabarito-container { margin: 20px auto; padding: 20px; background-color: white; border-radius: 10px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); max-width: 500px; }
+    #qr-result, #gabarito-result { margin: 15px 0; padding: 15px; background-color: #ecf0f1; border-radius: 5px; text-align: left; word-break: break-word; }
+    #gabarito-result { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .question-item { display: flex; padding: 8px; background-color: #f8f9fa; border-radius: 4px; border-left: 3px solid #3498db; }
+    .question-number { font-weight: bold; margin-right: 10px; }
+    .debug-section { margin-top: 30px; padding: 15px; background-color: #f0f0f0; border-radius: 10px; border: 1px solid #ddd; max-width: 500px; margin-left: auto; margin-right: auto; text-align: left; }
+    .debug-section h3 { color: #e74c3c; margin-bottom: 10px; font-size: 16px; }
+    #debug-log { background-color: #fff; padding: 10px; border-radius: 5px; border: 1px solid #ddd; font-family: monospace; font-size: 13px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+    .endpoint-config { margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd; }
+    .endpoint-config h4 { color: #2c3e50; margin-bottom: 10px; font-size: 14px; }
+    .endpoint-form { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+    .endpoint-form label { font-weight: bold; font-size: 13px; margin-top: 5px; }
+    .endpoint-input { padding: 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; width: 100%; }
+    .small-button { padding: 8px 15px; background-color: #2ecc71; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 10px; align-self: flex-end; }
+    .small-button:hover { background-color: #27ae60; }
+    @media (max-width: 600px) {
+      .container { padding: 10px; }
+      h1 { font-size: 24px; }
+      #gabarito-result { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Leitor de QR Code</h1>
+
+    <div id="camera-container">
+      <video id="camera" autoplay playsinline></video>
+      <canvas id="canvas" style="display: none;"></canvas>
+      <div class="camera-controls">
+        <button id="capture-button">Capturar</button>
+        <button id="switch-camera" style="display: none;">Trocar Câmera</button>
+      </div>
+    </div>
+
+    <div id="result-container" style="display: none;">
+      <h2>Resultado da Leitura</h2>
+      <div id="qr-result"></div>
+      <button id="read-gabarito" class="action-button">Ler Gabarito</button>
+    </div>
+
+    <div id="gabarito-container" style="display: none;">
+      <h2>Gabarito</h2>
+      <div id="gabarito-result"></div>
+      <button id="read-new-qr" class="action-button">Ler Novo QR Code</button>
+    </div>
+
+    <div id="debug-container" class="debug-section">
+      <h3>Status da Comunicação</h3>
+      <div id="debug-log"></div>
+
+      <div class="endpoint-config">
+        <h4>Configuração de Endpoints</h4>
+        <div class="endpoint-form">
+          <label for="qr-endpoint">Endpoint QR Code:</label>
+          <input type="text" id="qr-endpoint" value="http://212.85.19.120:8001/api/ler-qrcode/" class="endpoint-input">
+
+          <label for="gabarito-endpoint">Endpoint Gabarito:</label>
+          <input type="text" id="gabarito-endpoint" value="http://212.85.19.120:8002/api/leitor/" class="endpoint-input">
+
+          <button id="update-endpoints" class="small-button">Atualizar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Código JavaScript embutido ---
+    const videoElement = document.getElementById('camera');
+    const canvasElement = document.getElementById('canvas');
+    const captureButton = document.getElementById('capture-button');
+    const switchCameraButton = document.getElementById('switch-camera');
+    const readGabaritoButton = document.getElementById('read-gabarito');
+    const readNewQrButton = document.getElementById('read-new-qr');
+    const resultContainer = document.getElementById('result-container');
+    const qrResultElement = document.getElementById('qr-result');
+    const gabaritoContainer = document.getElementById('gabarito-container');
+    const gabaritoResultElement = document.getElementById('gabarito-result');
+    const debugLogElement = document.getElementById('debug-log');
+    const qrEndpointInput = document.getElementById('qr-endpoint');
+    const gabaritoEndpointInput = document.getElementById('gabarito-endpoint');
+    const updateEndpointsButton = document.getElementById('update-endpoints');
+
+    let stream = null;
+    let facingMode = 'environment';
+    let currentMode = 'qrcode';
+    let QR_CODE_ENDPOINT = qrEndpointInput.value.trim();
+    let GABARITO_ENDPOINT = gabaritoEndpointInput.value.trim();
+
+    updateEndpointsButton.addEventListener('click', updateEndpoints);
+
+    function updateEndpoints() {
+      QR_CODE_ENDPOINT = qrEndpointInput.value.trim();
+      GABARITO_ENDPOINT = gabaritoEndpointInput.value.trim();
+      logDebug(`Endpoints atualizados: QR: ${QR_CODE_ENDPOINT}, Gabarito: ${GABARITO_ENDPOINT}`);
+    }
+
+    function logDebug(message) {
+      const timestamp = new Date().toLocaleTimeString();
+      debugLogElement.innerHTML = `[${timestamp}] ${message}<br>` + debugLogElement.innerHTML;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        logDebug('Inicializando aplicação...');
+        setupEventListeners();
+        });
+
+
+    function setupEventListeners() {
+        captureButton.addEventListener('click', () => {
+            initCamera(); // Agora só inicializa a câmera ao clicar no botão
+            captureImage();
+        });
+        switchCameraButton.addEventListener('click', toggleCamera);
+        readGabaritoButton.addEventListener('click', switchToGabaritoMode);
+        readNewQrButton.addEventListener('click', switchToQRMode);
+        }
+
+
+    async function initCamera() {
+      try {
+        const constraints = { video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } } };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        videoElement.srcObject = stream;
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        if (devices.filter(d => d.kind === 'videoinput').length > 1) {
+          switchCameraButton.style.display = 'inline-block';
+        }
+      } catch (err) {
+        logDebug('Falha ao acessar câmera: ' + err.message);
+      }
+    }
+
+    async function toggleCamera() {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        facingMode = facingMode === 'environment' ? 'user' : 'environment';
+        await initCamera();
+      }
+    }
+
+    function captureImage() {
+      const context = canvasElement.getContext('2d');
+      canvasElement.width = videoElement.videoWidth;
+      canvasElement.height = videoElement.videoHeight;
+      context.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+      canvasElement.toBlob(blob => sendImageToServer(blob));
+    }
+
+    function sendImageToServer(blob) {
+      const endpoint = (currentMode === 'qrcode') ? '/qr/' : '/gabarito/';
+
+
+      const formData = new FormData();
+      formData.append('file', blob, 'image.jpg');  // Aqui é o truque: mandamos como se fosse um input type="file"
+
+      fetch(endpoint, {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (currentMode === 'qrcode') handleQRCodeResponse(data);
+        else handleGabaritoResponse(data);
+      })
+      .catch(error => logDebug('Erro ao enviar imagem via FormData: ' + error.message));
+    }
+
+
+    function handleQRCodeResponse(data) {
+      document.getElementById('camera-container').style.display = 'none';
+      resultContainer.style.display = 'block';
+      qrResultElement.innerHTML = `<p><strong>Dados do QR Code:</strong></p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+    }
+
+    function handleGabaritoResponse(data) {
+      document.getElementById('camera-container').style.display = 'none';
+      gabaritoContainer.style.display = 'block';
+      gabaritoResultElement.innerHTML = Object.entries(data).map(([q, r]) => `<div class="question-item"><span class="question-number">${q}:</span><span class="question-answer">${r}</span></div>`).join('');
+    }
+
+    function switchToGabaritoMode() {
+      currentMode = 'gabarito';
+      document.getElementById('camera-container').style.display = 'block';
+      resultContainer.style.display = 'none';
+      gabaritoContainer.style.display = 'none';
+    }
+
+    function switchToQRMode() {
+      currentMode = 'qrcode';
+      document.getElementById('camera-container').style.display = 'block';
+      resultContainer.style.display = 'none';
+      gabaritoContainer.style.display = 'none';
+    }
+  </script>
+
+</body>
+</html>
