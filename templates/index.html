@@ -189,6 +189,12 @@
     }
 
 
+    function handleQRCodeResponse(data) {
+      document.getElementById('camera-container').style.display = 'none';
+      resultContainer.style.display = 'block';
+      qrResultElement.innerHTML = `<p><strong>Dados do QR Code:</strong></p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+    }
+
     function handleGabaritoResponse(data) {
       document.getElementById('camera-container').style.display = 'none';
       resultContainer.style.display = 'none';
@@ -220,7 +226,7 @@
         gabaritoResultElement.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
       }
     }
-
+    
     function switchToGabaritoMode() {
       currentMode = 'gabarito';
       document.getElementById('camera-container').style.display = 'block';
