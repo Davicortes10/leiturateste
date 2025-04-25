@@ -189,35 +189,38 @@
     }
 
 
-    function handleQRCodeResponse(data) {
-      document.getElementById('camera-container').style.display = 'none';
-      resultContainer.style.display = 'block';
-      qrResultElement.innerHTML = `<p><strong>Dados do QR Code:</strong></p><pre>${JSON.stringify(data, null, 2)}</pre>`;
-    }
-
     function handleGabaritoResponse(data) {
       document.getElementById('camera-container').style.display = 'none';
       resultContainer.style.display = 'none';
       gabaritoContainer.style.display = 'block';
 
-      // Se o dado for objeto (esperado), exibe normalmente
-      if (typeof data === 'object' && data !== null) {
-        let gabaritoHTML = '';
+      // Limpa o conteúdo anterior
+      gabaritoResultElement.innerHTML = '';
 
-        for (const [questao, resposta] of Object.entries(data)) {
-          gabaritoHTML += `
-            <div class="question-item">
-              <span class="question-number">${questao}:</span>
-              <span class="question-answer">${resposta}</span>
-            </div>
-          `;
+      if (typeof data === 'object' && data !== null) {
+        // Se vier um objeto correto (questões e respostas)
+        if (Object.keys(data).length > 0) {
+          let gabaritoHTML = '';
+
+          for (const [questao, resposta] of Object.entries(data)) {
+            gabaritoHTML += `
+              <div class="question-item">
+                <span class="question-number">${questao}:</span>
+                <span class="question-answer">${resposta}</span>
+              </div>
+            `;
+          }
+          gabaritoResultElement.innerHTML = gabaritoHTML;
+        } else {
+          // Se objeto está vazio
+          gabaritoResultElement.innerHTML = '<p><strong>Nenhum dado encontrado no gabarito.</strong></p>';
         }
-        gabaritoResultElement.innerHTML = gabaritoHTML;
       } else {
-        // Se for texto simples ou erro, exibe como texto bruto
+        // Se não for objeto, mostra o conteúdo bruto
         gabaritoResultElement.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
       }
     }
+
     function switchToGabaritoMode() {
       currentMode = 'gabarito';
       document.getElementById('camera-container').style.display = 'block';
