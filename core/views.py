@@ -22,7 +22,10 @@ def ler_qr_code(request):
             with open(temp_file_path, 'rb') as img:
                 files = {'imagem': img}
                 response = requests.post('http://212.85.19.120:8001/api/ler-qrcode/', files=files)
+                response.raise_for_status()  # se falhar, sobe exceção
                 return JsonResponse(response.json(), status=response.status_code)
+        except requests.exceptions.RequestException as e:
+            return JsonResponse({'error': str(e)}, status=500)
         finally:
             os.remove(temp_file_path)
 
@@ -42,7 +45,10 @@ def ler_gabarito(request):
             with open(temp_file_path, 'rb') as img:
                 files = {'imagem': img}
                 response = requests.post('http://212.85.19.120:8002/api/leitor/', files=files)
+                response.raise_for_status()  # força erro se status não for 2xx
                 return JsonResponse(response.json(), status=response.status_code)
+        except requests.exceptions.RequestException as e:
+            return JsonResponse({'error': str(e)}, status=500)
         finally:
             os.remove(temp_file_path)
 
